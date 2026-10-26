@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+            .then(() => console.log("Aplicativo instalado com sucesso"))
+            .catch(error => console.log("Erro:", error));
+    });
+}
+</script>
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Analisador Lotofácil</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#198754">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px #ccc;
+        }
+
+        h1 {
+            text-align: center;
+            color: #6a1b9a;
+        }
+
+        h2 {
+            color: #444;
+            margin-top: 30px;
+        }
+
+        .explicacao {
+            text-align: center;
+            font-size: 17px;
+        }
+
+        /* RESULTADOS */
+
+        .resultado-box {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+
+        .resultado-titulo {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* CARTELA */
+
+        .cartela {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .numero {
+            height: 48px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border: 2px solid #ccc;
+            border-radius: 50%;
+
+            background: #eee;
+
+            font-weight: bold;
+
+            cursor: pointer;
+
+            transition: 0.2s;
+        }
+
+        .numero:hover {
+            transform: scale(1.05);
+        }
+
+        .numero.selecionado {
+            background: #6a1b9a;
+            color: white;
+            border-color: #6a1b9a;
+        }
+
+        .contador {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* BOTÕES */
+
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 15px;
+
+            border: none;
+            border-radius: 8px;
+
+            background: #6a1b9a;
+            color: white;
+
+            font-size: 17px;
+            font-weight: bold;
+
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #4a126d;
+        }
+
+        .botao-secundario {
+            background: #555;
+        }
+
+        /* ESTATÍSTICA */
+
+        .tabela {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .tabela th,
+        .tabela td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .tabela th {
+            background: #6a1b9a;
+            color: white;
+        }
+
+        .mais-frequente {
+            background: #d7ffd9;
+            font-weight: bold;
+        }
+
+        /* JOGO */
+
+        .jogo-gerado {
+            margin-top: 20px;
+            padding: 20px;
+
+            background: #f3e5f5;
+
+            border-radius: 10px;
+
+            text-align: center;
+        }
+
+        .numeros-jogo {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .bola {
+            width: 48px;
+            height: 48px;
+
+            border-radius: 50%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: #6a1b9a;
+            color: white;
+
+            font-weight: bold;
+        }
+
+        .aviso {
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 600px) {
+
+            .container {
+                padding: 15px;
+            }
+
+            .numero {
+                height: 42px;
+                font-size: 14px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🍀 Analisador Lotofácil</h1>
+
+    <p class="explicacao">
+        Cadastre 10 resultados e o sistema calculará
+        a frequência dos números de 01 a 25.
+    </p>
+
+
+    <!-- RESULTADOS -->
+
+    <h2>🎲 Resultados dos últimos 10 concursos</h2>
+
+    <div id="resultados"></div>
+
+
+    <button onclick="analisarResultados()">
+        📊 ANALISAR 10 RESULTADOS
+    </button>
+
+
+    <!-- ESTATÍSTICA -->
+
+    <div id="estatistica"></div>
+
+
+    <!-- JOGO -->
+
+    <div id="areaJogo"></div>
+
+</div>
+
+
+<script>
+
+
+// =====================================================
+// VARIÁVEIS
+// =====================================================
+
+let resultados = [];
+
+let resultadoAtual = [];
+
+
+// =====================================================
+// CRIAR OS 10 RESULTADOS
+// =====================================================
+
+function criarResultados() {
+
+    const area =
+        document.getElementById("resultados");
+
+    area.innerHTML = "";
+
+
+    for (let r = 0; r < 10; r++) {
+
+        const caixa =
+            document.createElement("div");
+
+        caixa.className = "resultado-box";
+
+
+        const titulo =
+            document.createElement("div");
+
+        titulo.className =
+            "resultado-titulo";
+
+        titulo.textContent =
+            "Resultado " + (r + 1);
+
+
+        caixa.appendChild(titulo);
+
+
+        const cartela =
+            document.createElement("div");
+
+        cartela.className = "cartela";
+
+
+        for (let n = 1; n <= 25; n++) {
+
+            const numero =
+                document.createElement("div");
+
+            numero.className = "numero";
+
+            numero.textContent =
+                String(n).padStart(2, "0");
+
+
+            numero.onclick =
+                function () {
+
+                    selecionarResultado(
+                        r,
+                        n,
+                        numero
+                    );
+
+                };
+
+
+            cartela.appendChild(numero);
+        }
+
+
+        caixa.appendChild(cartela);
+
+
+        const contador =
+            document.createElement("div");
+
+        contador.className =
+            "contador";
+
+        contador.id =
+            "contador-" + r;
+
+        contador.textContent =
+            "Selecionados: 0 / 15";
+
+
+        caixa.appendChild(contador);
+
+
+        area.appendChild(caixa);
+    }
+
+
+    resultados =
+        Array.from(
+            { length: 10 },
+            () => []
+        );
+}
+
+
+// =====================================================
+// SELECIONAR NÚMERO
+// =====================================================
+
+function selecionarResultado(
+    indice,
+    numero,
+    elemento
+) {
+
+    const lista =
+        resultados[indice];
+
+
+    const posicao =
+        lista.indexOf(numero);
+
+
+    if (posicao === -1) {
+
+        if (lista.length >= 15) {
+
+            alert(
+                "Cada resultado deve ter exatamente 15 números."
+            );
+
+            return;
+        }
+
+
+        lista.push(numero);
+
+        elemento.classList.add(
+            "selecionado"
+        );
+
+    } else {
+
+        lista.splice(posicao, 1);
+
+        elemento.classList.remove(
+            "selecionado"
+        );
+    }
+
+
+    document.getElementById(
+        "contador-" + indice
+    ).textContent =
+        "Selecionados: " +
+        lista.length +
+        " / 15";
+}
+
+
+// =====================================================
+// ANALISAR
+// =====================================================
+
+function analisarResultados() {
+
+    for (let i = 0; i < 10; i++) {
+
+        if (resultados[i].length !== 15) {
+
+            alert(
+                "O Resultado " +
+                (i + 1) +
+                " precisa ter 15 números."
+            );
+
+            return;
+        }
+    }
+
+
+    let frequencia =
+        Array(26).fill(0);
+
+
+    // Conta quantas vezes cada número saiu
+
+    resultados.forEach(
+        function(resultado) {
+
+            resultado.forEach(
+                function(numero) {
+
+                    frequencia[numero]++;
+
+                }
+            );
+
+        }
+    );
+
+
+    // Criar ranking
+
+    let ranking = [];
+
+
+    for (let numero = 1; numero <= 25; numero++) {
+
+        ranking.push({
+
+            numero: numero,
+
+            vezes: frequencia[numero],
+
+            percentual:
+                (frequencia[numero] / 10) * 100
+
+        });
+    }
+
+
+    ranking.sort(
+        function(a, b) {
+
+            if (b.vezes !== a.vezes) {
+
+                return b.vezes - a.vezes;
+
+            }
+
+            return a.numero - b.numero;
+
+        }
+    );
+
+
+    mostrarEstatistica(
+        ranking
+    );
+
+
+    gerarJogo(
+        ranking
+    );
+}
+
+
+// =====================================================
+// MOSTRAR ESTATÍSTICA
+// =====================================================
+
+function mostrarEstatistica(
+    ranking
+) {
+
+    const area =
+        document.getElementById(
+            "estatistica"
+        );
+
+
+    let html = `
+
+        <h2>📊 Frequência dos números</h2>
+
+        <p>
+            Foram analisados 10 resultados,
+            totalizando 150 números.
+        </p>
+
+        <table class="tabela">
+
+            <tr>
+                <th>Posição</th>
+                <th>Número</th>
+                <th>Vezes</th>
+                <th>Frequência</th>
+            </tr>
+
+    `;
+
+
+    ranking.forEach(
+        function(item, indice) {
+
+            const classe =
+                indice < 15
+                ? "mais-frequente"
+                : "";
+
+
+            html += `
+
+                <tr class="${classe}">
+
+                    <td>
+                        ${indice + 1}
+                    </td>
+
+                    <td>
+                        ${String(item.numero)
+                            .padStart(2, "0")}
+                    </td>
+
+                    <td>
+                        ${item.vezes}
+                    </td>
+
+                    <td>
+                        ${item.percentual.toFixed(0)}%
+                    </td>
+
+                </tr>
+
+            `;
+        }
+    );
+
+
+    html += `</table>`;
+
+
+    area.innerHTML =
+        html;
+}
+
+
+// =====================================================
+// GERAR JOGO
+// =====================================================
+
+function gerarJogo(
+    ranking
+) {
+
+    /*
+       Pegamos os 15 números
+       mais frequentes.
+    */
+
+    let jogo =
+        ranking
+        .slice(0, 15)
+        .map(
+            item => item.numero
+        );
+
+
+    jogo.sort(
+        (a, b) => a - b
+    );
+
+
+    const area =
+        document.getElementById(
+            "areaJogo"
+        );
+
+
+    let bolas = "";
+
+
+    jogo.forEach(
+        function(numero) {
+
+            bolas += `
+
+                <div class="bola">
+
+                    ${String(numero)
+                        .padStart(2, "0")}
+
+                </div>
+
+            `;
+
+        }
+    );
+
+
+    area.innerHTML = `
+
+        <div class="jogo-gerado">
+
+            <h2>
+                🎯 Jogo baseado nos 10 resultados
+            </h2>
+
+            <p>
+                Foram escolhidos os 15 números
+                com maior frequência histórica
+                entre os 10 resultados informados.
+            </p>
+
+            <div class="numeros-jogo">
+
+                ${bolas}
+
+            </div>
+
+            <button onclick="copiarJogo()">
+
+                📋 COPIAR JOGO
+
+            </button>
+
+        </div>
+
+    `;
+
+
+    window.jogoGerado =
+        jogo;
+}
+
+
+// =====================================================
+// COPIAR JOGO
+// =====================================================
+
+function copiarJogo() {
+
+    if (!window.jogoGerado) {
+
+        return;
+    }
+
+
+    const texto =
+        window.jogoGerado
+        .map(
+            numero =>
+            String(numero)
+                .padStart(2, "0")
+        )
+        .join(" - ");
+
+
+    navigator.clipboard
+        .writeText(texto);
+
+
+    alert(
+        "Jogo copiado: " + texto
+    );
+}
+
+
+// =====================================================
+// INICIAR
+// =====================================================
+
+criarResultados();
+
+</script>
+
+</body>
+
+</html>

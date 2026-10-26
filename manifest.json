@@ -1,0 +1,11 @@
+{
+  "name": "Conferidor Lotofácil",
+  "short_name": "Lotofácil",
+  "description": "Conferidor e analisador de jogos da Lotofácil",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#198754",
+  "orientation": "portrait",
+  "icons": []
+}
